@@ -1,0 +1,7 @@
+venv/
+__pycache__/
+*.pyc
+sentiment-model/
+explain_output/
+finetuning-sentiment-model-3000-samples/
+.DS_Store

@@ -1,0 +1,8 @@
+transformers>=4.44
+datasets>=2.19
+evaluate>=0.4
+scikit-learn      # required by evaluate for the f1 metric
+accelerate>=0.30  # Trainer needs this for device placement / fp16
+matplotlib
+numpy
+# torch is installed separately (see README) so you get the right CUDA build

@@ -1,0 +1,126 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<title>A sentence's journey through a Transformer</title>
+<style>
+  body { font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+         max-width: 900px; margin: 40px auto; padding: 0 20px;
+         line-height: 1.65; color: #24292f; }
+  h1 { border-bottom: 2px solid #eaecef; padding-bottom: .3em; }
+  h2 { margin-top: 2.2em; border-bottom: 1px solid #eaecef; padding-bottom: .2em; }
+  .verdict { font-size: 1.5em; padding: 16px 20px; border-radius: 10px;
+              background: #f6f8fa; border-left: 5px solid #4c72b0; }
+  .sentence { font-size: 1.25em; background: #fff8dc; padding: 10px 16px;
+               border-radius: 8px; display: inline-block; }
+  table { border-collapse: collapse; width: 100%; margin: 1em 0; }
+  th, td { border: 1px solid #d0d7de; padding: 7px 10px; text-align: left; }
+  th { background: #f6f8fa; }
+  img { max-width: 100%; border: 1px solid #eaecef; border-radius: 8px; }
+  figcaption { color: #57606a; font-size: .9em; margin-top: .4em; }
+  .note { background: #f6f8fa; border-left: 4px solid #d0d7de;
+           padding: 12px 16px; border-radius: 6px; margin: 1em 0; }
+  code { background: #f6f8fa; padding: 2px 6px; border-radius: 4px; }
+</style></head><body>
+
+<h1>A sentence's journey through a Transformer</h1>
+<p>Input sentence: <span class="sentence">I do not love this movie</span></p>
+<div class="verdict"><b>Final verdict:</b> NEGATIVE
+&nbsp;(91.5% confident)</div>
+
+<h2>Station 1 &mdash; Text becomes tokens</h2>
+<p>The model cannot read letters, only numbers. First the text is chopped into
+<b>tokens</b>, and each token is looked up in the model's ~30k-entry vocabulary
+to get its row number. Notice two tokens the model adds on its own:</p>
+<table>
+<tr><th>#</th><th>token</th><th>id</th><th>note</th></tr>
+<tr><td>0</td><td><code>[CLS]</code></td><td>101</td><td>added by the model</td></tr>
+<tr><td>1</td><td><code>i</code></td><td>1045</td><td></td></tr>
+<tr><td>2</td><td><code>do</code></td><td>2079</td><td></td></tr>
+<tr><td>3</td><td><code>not</code></td><td>2025</td><td></td></tr>
+<tr><td>4</td><td><code>love</code></td><td>2293</td><td></td></tr>
+<tr><td>5</td><td><code>this</code></td><td>2023</td><td></td></tr>
+<tr><td>6</td><td><code>movie</code></td><td>3185</td><td></td></tr>
+<tr><td>7</td><td><code>[SEP]</code></td><td>102</td><td>added by the model</td></tr>
+</table>
+<div class="note"><b>[CLS]</b> is an artificial token placed at the front. Its job is to
+listen to every word during attention and collect a summary of the whole sentence
+into its own vector. At the end, only this vector is handed to the decision layer.
+<b>[SEP]</b> simply marks where the sentence ends.</div>
+
+<h2>Station 2 &mdash; Tokens become vectors (embeddings)</h2>
+<p>A row number carries no meaning &mdash; it is just an address, like a seat number.
+The <b>embedding table</b> turns each address into a vector of 768 numbers that
+<em>does</em> carry meaning: words with similar meanings get nearby vectors.</p>
+<figure><img src="embeddings.png" alt="embeddings">
+<figcaption>Each row is one token, now a vector. Red = positive values, blue = negative.
+These are the <em>raw</em> vectors: at this point the model still does not know which
+sense of a word is meant &mdash; that is attention's job.</figcaption></figure>
+
+<h2>Station 3 &mdash; Attention: the words look at each other</h2>
+<p>This is the heart of the Transformer. Each word asks a question (<b>Query</b>),
+every other word offers a label (<b>Key</b>), the two are compared to see how
+relevant they are, and the word then borrows meaning (<b>Value</b>) in proportion
+to that relevance. The result: a new, sentence-aware vector for every word.</p>
+
+<p>Read the heatmap like this: each <b>row</b> is a word doing the looking, each
+<b>column</b> is a word being looked at. A bright cell means "this word paid a lot
+of attention to that one." Every row adds up to 1.00 (100% of its attention).</p>
+
+<figure><img src="attention_first.png" alt="first layer attention">
+<figcaption>Layer 1 &mdash; the earliest pass. Attention here tends to be broad and
+mostly positional.</figcaption></figure>
+
+<figure><img src="attention_last.png" alt="last layer attention">
+<figcaption>Layer 6 &mdash; the final pass, after the sentence has been
+re-read 6 times. The pattern is now much more semantic.</figcaption></figure>
+
+<div class="note">DistilBERT has <b>6 attention layers</b>, each with
+<b>12 heads</b>. Each head learns to look for a different kind of relationship;
+the maps above average all heads together.</div>
+
+<h2>Station 4 &mdash; [CLS] builds the summary</h2>
+<p>Since <code>[CLS]</code> also participates in attention, it listens to the words
+and folds them into a single vector. This bar chart is row 0 of the last attention
+map &mdash; literally <em>what the summary token listened to</em>.</p>
+<figure><img src="cls_attention.png" alt="cls attention">
+<figcaption>The taller the bar, the more that word shaped the final decision.</figcaption></figure>
+<figure><img src="cls_vector.png" alt="cls vector">
+<figcaption>The resulting <code>[CLS]</code> vector: the entire sentence squeezed
+into 768 numbers. This is the <em>only</em> thing the decision layer sees.</figcaption></figure>
+
+<h2>Station 5 &mdash; The decision: dense &rarr; logits &rarr; softmax</h2>
+<p>A small <b>dense</b> layer takes the summary vector, multiplies each number by a
+learned weight, adds them up, adds a bias, and produces two raw scores called
+<b>logits</b>. Logits are not percentages &mdash; they are just "how much the model
+leans each way." <b>Softmax</b> then converts them into percentages that add to 100%,
+exaggerating the gap between them along the way.</p>
+<figure><img src="decision.png" alt="logits and softmax">
+<figcaption>Left: the raw logits. Right: after softmax. The bigger the gap in the
+logits, the more confident the model is.</figcaption></figure>
+<table>
+<tr><th>class</th><th>logit (raw)</th><th>after softmax</th></tr>
+<tr><td>NEGATIVE</td><td>1.1882</td><td><b>91.53%</b></td></tr>
+<tr><td>POSITIVE</td><td>-1.1923</td><td><b>8.47%</b></td></tr>
+</table>
+
+<h2>The whole journey</h2>
+<pre>
+  "I do not love this movie"
+        |  tokenize
+        v   [&#x27;[CLS]&#x27;, &#x27;i&#x27;, &#x27;do&#x27;, &#x27;not&#x27;, &#x27;love&#x27;, &#x27;this&#x27;, &#x27;movie&#x27;, &#x27;[SEP]&#x27;]
+        |  vocabulary lookup
+        v   [101, 1045, 2079, 2025, 2293, 2023, 3185, 102]
+        |  embedding table
+        v   8 vectors x 768 numbers
+        |  6 layers of self-attention
+        v   8 sentence-aware vectors
+        |  take the [CLS] vector
+        v   1 summary vector
+        |  dense
+        v   logits [1.19, -1.19]
+        |  softmax
+        v   ['91.5%', '8.5%']
+        |  pick the biggest
+        v   NEGATIVE
+</pre>
+
+</body></html>

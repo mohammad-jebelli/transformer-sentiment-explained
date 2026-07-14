@@ -4,7 +4,7 @@
 
 This repo fine-tunes DistilBERT for sentiment analysis — and then **opens the box**: a companion script traces one sentence through every station of the model and renders an HTML report with attention heatmaps, so you can *see* the machine think.
 
-Companion project to the article **"A Sentence's Journey Through a Transformer"** (English / فارسی — links coming soon).
+Companion project to the article **"[A Sentence's Journey Through a Transformer]"** (https://mohammadjebelli.com/a-sentences-journey-through-a-transformer/).
 Sister project: [cnn-cat-dog-explained](https://github.com/mohammad-jebelli/cnn-cat-dog-explained) — the same idea, for images.
 
 ---
